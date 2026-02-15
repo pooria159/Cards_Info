@@ -1,0 +1,504 @@
+{% extends "base.html" %}
+{% block title %}Cards{% endblock %}
+{% block content %}
+
+<header class="sticky top-0 z-30 border-b border-blue-100/70 bg-white/70 backdrop-blur-xl
+               dark:bg-slate-950/55 dark:border-blue-500/20">
+  <div class="max-w-7xl mx-auto px-4 py-4">
+    <div class="flex flex-col gap-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h1 class="text-xl md:text-2xl font-extrabold tracking-tight">
+            پنل شرکت‌کنندگان
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          {% if user.is_staff %}
+          <a href="{% url 'dashboard' %}"
+             class="rounded-2xl border border-blue-100 bg-white px-4 py-2 shadow-sm hover:bg-blue-50
+                    dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60">
+            داشبورد
+          </a>
+          {% endif %}
+
+          <button id="themeBtn"
+            class="rounded-2xl border border-blue-100 bg-white px-3 py-2 shadow-sm hover:bg-blue-50
+                   dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60">
+            <span id="themeIcon">🌙</span>
+          </button>
+
+          <div class="rounded-2xl bg-blue-600 text-white px-4 py-2 shadow-sm dark:bg-blue-500">
+            <span id="count">{{ attendees|length }}</span> نفر
+          </div>
+
+          <a href="{% url 'logout' %}"
+             class="rounded-2xl bg-blue-600 text-white px-4 py-2 shadow-sm hover:bg-blue-700 active:bg-blue-800
+                    dark:bg-blue-500 dark:hover:bg-blue-600">
+            خروج
+          </a>
+        </div>
+      </div>
+
+      <div class="flex flex-col lg:flex-row gap-3 lg:items-center">
+        <div class="relative flex-1">
+          <input id="q" type="text"
+            class="w-full rounded-3xl border border-blue-100 bg-white/80 backdrop-blur px-4 py-3 shadow-sm
+                   focus:outline-none focus:ring-4 focus:ring-blue-200/60
+                   dark:bg-slate-950/40 dark:border-blue-500/20 dark:focus:ring-blue-500/20"
+            placeholder="جستجو: نام، ایمیل، شهر، شغل، رشته، تگ‌ها ..."
+          />
+        </div>
+
+        <button id="clearBtn"
+          class="rounded-3xl border border-blue-100 bg-white/80 backdrop-blur px-4 py-3 shadow-sm hover:bg-blue-50
+                 dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60">
+          پاک کردن
+        </button>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+<main class="max-w-8xl mx-auto px-12 py-6">
+  {% if no_upload %}
+    <div class="max-w-3xl mx-auto rounded-[22px] border border-blue-100/70 bg-white/75 backdrop-blur-xl shadow-sm p-6
+                dark:bg-slate-900/65 dark:border-blue-500/20">
+      <div class="text-lg font-extrabold">هنوز هیچ آپلودی ثبت نشده است.</div>
+      <div class="text-sm text-slate-600 dark:text-slate-300 mt-2">ادمین باید ابتدا فایل اکسل و زیپ عکس‌ها را از داشبورد آپلود کند.</div>
+    </div>
+  {% else %}
+  <div id="gridWrap" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {% for a in attendees %}
+    <article
+      class="card relative select-none rounded-[22px] border border-blue-100/70 bg-white/75 backdrop-blur-xl shadow-sm hover:shadow-soft transition
+             overflow-hidden dark:bg-slate-900/65 dark:border-blue-500/20"
+      data-search="{{ a.search_blob|default:'' }}"
+      data-raw="{{ a.raw_json|default:'{}'|escape }}"
+      data-name="{{ a.name|default:'' }}"
+      data-email="{{ a.email|default:'' }}"
+      data-photo="{{ a.photo_url|default:'' }}"
+      data-interests="{{ a.interests|join:' | ' }}"
+      data-tag="{{ a.tag|default:'PRODUCT' }}"
+      data-selected="{% if a.selected %}1{% else %}0{% endif %}"
+    >
+      {% if a.tag == "AI" %}
+        <div class="h-1.5 bg-red-600"></div>
+      {% elif a.tag == "SOFTWARE" %}
+        <div class="h-1.5 bg-green-600"></div>
+      {% else %}
+        <div class="h-1.5 bg-blue-600"></div>
+      {% endif %}
+
+      <div class="selectedOverlay pointer-events-none absolute inset-0 {% if not a.selected %}hidden{% endif %}">
+        <div class="absolute inset-0 bg-slate-950/35 dark:bg-black/45"></div>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="rounded-2xl border-2 border-blue-600 bg-white/95 px-5 py-3 text-sm font-extrabold text-blue-800 shadow-soft
+                      dark:bg-slate-950/85 dark:text-blue-200 dark:border-blue-400">
+            انتخاب شده است
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 sm:p-4">
+        <div class="flex items-start gap-3">
+          <div class="shrink-0">
+            {% if a.photo_url %}
+              <img src="{{ a.photo_url }}" alt="photo"
+                class="w-16 h-16 sm:w-20 sm:h-20 rounded-[18px] object-cover ring-1 ring-blue-100 dark:ring-blue-500/20" />
+            {% else %}
+              <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-[18px]
+                          bg-blue-50 ring-1 ring-blue-100 flex items-center justify-center
+                          dark:bg-slate-950/35 dark:ring-blue-500/20">
+                <span class="text-blue-700 dark:text-blue-200 font-extrabold text-xl">
+                  {{ a.name|default:"?"|slice:":1" }}
+                </span>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <h2 class="font-extrabold text-base leading-6 break-words line-clamp-2">{{ a.name }}</h2>
+            <p class="text-xs text-slate-600 dark:text-slate-300 mt-1 break-words line-clamp-2">{{ a.email }}</p>
+
+            <div class="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                class="selectBtn h-9 rounded-2xl border border-blue-100 bg-white/80 px-3 text-xs font-extrabold shadow-sm hover:bg-blue-50
+                       dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950"
+                aria-pressed="{% if a.selected %}true{% else %}false{% endif %}"
+                {% if a.selected and not user.is_staff %}disabled{% endif %}
+              >
+                {% if a.selected %}انتخاب شد{% else %}انتخاب{% endif %}
+              </button>
+
+              <button
+                class="openModal h-9 rounded-2xl border border-blue-100 bg-white/80 px-3 text-xs font-extrabold shadow-sm hover:bg-blue-50
+                       dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60"
+              >
+                جزئیات
+              </button>
+
+              {% if a.tag == "AI" %}
+                <span class="h-9 inline-flex items-center rounded-2xl bg-red-600 px-3 text-xs font-extrabold text-white">AI</span>
+              {% elif a.tag == "SOFTWARE" %}
+                <span class="h-9 inline-flex items-center rounded-2xl bg-green-600 px-3 text-xs font-extrabold text-white">Software</span>
+              {% else %}
+                <span class="h-9 inline-flex items-center rounded-2xl bg-blue-600 px-3 text-xs font-extrabold text-white">Product</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 grid grid-cols-1 gap-2">
+          {% for kv in a.summary|slice:":2" %}
+          <div class="rounded-2xl border border-blue-100 bg-white/70 px-3 py-2 shadow-sm
+                      dark:bg-slate-950/35 dark:border-blue-500/20">
+            <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ kv.0 }}</div>
+            <div class="text-xs font-semibold text-slate-900 dark:text-slate-50 mt-1 break-words line-clamp-2">
+              {{ kv.1 }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if a.interests %}
+        <div class="mt-3 flex flex-wrap gap-2">
+          {% for it in a.interests|slice:":6" %}
+            <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold text-white
+                         {% if a.tag == 'AI' %} bg-red-600
+                         {% elif a.tag == 'SOFTWARE' %} bg-green-600
+                         {% else %} bg-blue-600
+                         {% endif %}">
+              {{ it }}
+            </span>
+          {% endfor %}
+          {% if a.interests|length > 6 %}
+            <span class="inline-flex items-center rounded-full bg-slate-700 px-3 py-1 text-[11px] font-extrabold text-white dark:bg-slate-300 dark:text-slate-900">
+              +{{ a.interests|length|add:"-6" }}
+            </span>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</main>
+
+<div id="modalWrap" class="fixed inset-0 hidden items-center justify-center bg-black/55 p-4 z-40">
+  <div class="w-full max-w-5xl rounded-[30px] bg-white/90 backdrop-blur-xl shadow-soft border border-blue-100/70 overflow-hidden
+              dark:bg-slate-900/80 dark:border-blue-500/20">
+    <div class="p-4 md:p-5 flex items-start justify-between gap-3 border-b border-blue-100/60 dark:border-blue-500/20">
+      <div class="flex items-center gap-3 min-w-0">
+        <img id="mPhoto" class="w-16 h-16 rounded-[22px] object-cover ring-1 ring-blue-100 hidden dark:ring-blue-500/20" />
+        <div id="mAvatar" class="w-16 h-16 rounded-[22px] bg-blue-50 ring-1 ring-blue-100 flex items-center justify-center hidden
+                                dark:bg-slate-950/35 dark:ring-blue-500/20">
+          <span id="mInitial" class="text-blue-700 dark:text-blue-200 font-extrabold text-2xl"></span>
+        </div>
+        <div class="min-w-0">
+          <div id="mName" class="font-extrabold text-xl truncate"></div>
+          <div id="mEmail" class="text-sm text-slate-600 dark:text-slate-300 break-words mt-1"></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="selectFromModal"
+          class="rounded-2xl bg-blue-600 text-white px-4 py-2 shadow-sm hover:bg-blue-700 active:bg-blue-800
+                 dark:bg-blue-500 dark:hover:bg-blue-600">
+          انتخاب کن
+        </button>
+
+        <button id="closeModal"
+          class="rounded-2xl border border-blue-100 bg-white px-4 py-2 hover:bg-blue-50 shadow-sm
+                 dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60">
+          بستن
+        </button>
+      </div>
+    </div>
+
+    <div class="p-4 md:p-5">
+      <div id="mChips" class="flex flex-wrap gap-2 mb-4"></div>
+
+      <div class="rounded-2xl border border-blue-100/70 overflow-hidden dark:border-blue-500/20">
+        <div class="bg-blue-50/70 px-4 py-3 text-sm font-extrabold dark:bg-slate-950/35">
+          اطلاعات کامل
+        </div>
+        <div id="mTable" class="divide-y divide-blue-100/60 dark:divide-blue-500/20"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const themeBtn = document.getElementById('themeBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  const root = document.documentElement;
+  function setTheme(mode){
+    if(mode==='dark'){ root.classList.add('dark'); themeIcon.textContent='☀️'; localStorage.setItem('theme','dark');}
+    else { root.classList.remove('dark'); themeIcon.textContent='🌙'; localStorage.setItem('theme','light');}
+  }
+  setTheme(root.classList.contains('dark') ? 'dark' : 'light');
+  themeBtn.addEventListener('click', ()=> setTheme(root.classList.contains('dark') ? 'light':'dark'));
+
+  const q = document.getElementById('q');
+  const cards = [...document.querySelectorAll('.card')];
+  const countEl = document.getElementById('count');
+  const clearBtn = document.getElementById('clearBtn');
+
+  function applyFilter() {
+    const term = (q.value || '').trim().toLowerCase();
+    let shown = 0;
+    for (const c of cards) {
+      const hay = (c.dataset.search || '');
+      const ok = !term || hay.includes(term);
+      c.classList.toggle('hidden', !ok);
+      if (ok) shown++;
+    }
+    countEl.textContent = shown;
+  }
+  q?.addEventListener('input', applyFilter);
+  clearBtn?.addEventListener('click', () => { q.value = ''; applyFilter(); q.focus(); });
+
+  const modalWrap = document.getElementById('modalWrap');
+  const closeModal = document.getElementById('closeModal');
+  const selectFromModal = document.getElementById('selectFromModal');
+  let activeCard = null;
+  const mName = document.getElementById('mName');
+  const mEmail = document.getElementById('mEmail');
+  const mPhoto = document.getElementById('mPhoto');
+  const mAvatar = document.getElementById('mAvatar');
+  const mInitial = document.getElementById('mInitial');
+  const mChips = document.getElementById('mChips');
+  const mTable = document.getElementById('mTable');
+
+  function hideModal() {
+    modalWrap.classList.add('hidden');
+    modalWrap.classList.remove('flex');
+  }
+
+  function htmlDecode(txt) {
+    return new DOMParser().parseFromString(txt, "text/html").documentElement.textContent;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  function showModal(card) {
+    activeCard = card;
+    const name = card.dataset.name || '';
+    const email = card.dataset.email || '';
+    const photo = card.dataset.photo || '';
+    const interests = (card.dataset.interests || '').split(' | ').map(s => s.trim()).filter(Boolean);
+
+    mName.textContent = name;
+    mEmail.textContent = email;
+
+    if (photo) {
+      mPhoto.src = photo;
+      mPhoto.classList.remove('hidden');
+      mAvatar.classList.add('hidden');
+    } else {
+      mPhoto.classList.add('hidden');
+      mAvatar.classList.remove('hidden');
+      mInitial.textContent = (name || '?').slice(0, 1);
+    }
+
+    mChips.innerHTML = '';
+    for (const it of interests) {
+      const chip = document.createElement('span');
+      chip.className = 'text-xs font-extrabold px-3 py-1.5 rounded-full bg-blue-600 text-white';
+      chip.textContent = it;
+      mChips.appendChild(chip);
+    }
+
+    let raw = {};
+    try {
+      const txt = card.getAttribute('data-raw') || '{}';
+      const decoded = htmlDecode(txt) || '{}';
+      raw = JSON.parse(decoded);
+    } catch (e) {
+      raw = {};
+    }
+
+    mTable.innerHTML = '';
+    const entries = Object.entries(raw).filter(([k,v]) => String(v).trim() !== '');
+    for (const [k,v] of entries) {
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-1 md:grid-cols-3 gap-2 px-4 py-3';
+      row.innerHTML = `
+        <div class="text-sm text-slate-500 dark:text-slate-400 break-words">${escapeHtml(k)}</div>
+        <div class="text-sm font-semibold break-words md:col-span-2 text-slate-900 dark:text-slate-50">${escapeHtml(String(v))}</div>
+      `;
+      mTable.appendChild(row);
+    }
+
+    modalWrap.classList.remove('hidden');
+    modalWrap.classList.add('flex');
+  }
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+  }
+
+  const IS_STAFF = {{ user.is_staff|yesno:"true,false" }};
+  const API_URL = "{% url 'set_selection' %}";
+  const CSRF = getCookie('csrftoken');
+
+  async function persistSelection(email, selected) {
+    const fd = new FormData();
+    fd.append("email", email);
+    fd.append("selected", selected ? "1" : "0");
+
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "X-CSRFToken": CSRF },
+      body: fd,
+    });
+
+    if (!res.ok) return null;
+    return await res.json();
+  }
+
+  function setSelected(card, selected) {
+    card.dataset.selected = selected ? "1" : "0";
+    const overlay = card.querySelector(".selectedOverlay");
+    const btn = card.querySelector(".selectBtn");
+
+    if (selected) {
+      overlay?.classList.remove("hidden");
+      card.style.outline = "3px solid rgba(255, 255, 255, 0.75)";
+      card.style.outlineOffset = "0px";
+      btn?.setAttribute("aria-pressed", "true");
+      if (btn) {
+        btn.textContent = "انتخاب شد";
+        if (!IS_STAFF) btn.disabled = true;
+      }
+    } else {
+      overlay?.classList.add("hidden");
+      card.style.outline = "none";
+      btn?.setAttribute("aria-pressed", "false");
+      if (btn) {
+        btn.textContent = "انتخاب";
+        btn.disabled = false;
+      }
+    }
+  }
+
+  document.querySelectorAll(".card").forEach(card => {
+    setSelected(card, card.dataset.selected === "1");
+  });
+
+  document.querySelectorAll(".card").forEach(card => {
+    const btn = card.querySelector(".selectBtn");
+    btn?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+
+      const email = (card.dataset.email || "").trim().toLowerCase();
+      if (!email) return;
+
+      const isSelected = card.dataset.selected === "1";
+      if (!IS_STAFF && isSelected) return;
+
+      const desired = IS_STAFF ? !isSelected : true;
+      const resp = await persistSelection(email, desired);
+      if (resp && resp.ok) setSelected(card, !!resp.selected);
+    });
+  });
+
+  document.querySelectorAll('.openModal').forEach(btn => {
+    btn.addEventListener('click', (e) => showModal(e.target.closest('.card')));
+  });
+
+  selectFromModal?.addEventListener('click', async () => {
+    if (!activeCard) return;
+
+    const email = (activeCard.dataset.email || "").trim().toLowerCase();
+    if (!email) { hideModal(); return; }
+
+    if (activeCard.dataset.selected === "1") { hideModal(); return; }
+
+    const resp = await persistSelection(email, true);
+    if (resp && resp.ok) setSelected(activeCard, true);
+
+    hideModal();
+  });
+
+  modalWrap?.addEventListener('click', (e) => { if (e.target === modalWrap) hideModal(); });
+  closeModal?.addEventListener('click', hideModal);
+
+  function onKeydown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); q?.focus(); }
+    if (e.key === 'Escape') hideModal();
+  }
+  window.addEventListener('keydown', onKeydown);
+
+  let dir = 1;
+  let autoEnabled = true;
+  let timer = null;
+  let resumeTimer = null;
+
+  const STEP = 15;
+  const TICK = 700;
+  const RESUME_AFTER = 150;
+
+  function startAuto() {
+    if (timer) return;
+
+    timer = setInterval(() => {
+      if (!autoEnabled) return;
+
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const y = window.scrollY;
+
+      let next = y + STEP * dir;
+      if (next >= maxScroll) { next = maxScroll; dir = -1; }
+      if (next <= 0) { next = 0; dir = 1; }
+
+      window.scrollTo({ top: next, behavior: "smooth" });
+    }, TICK);
+  }
+
+  function pauseAuto() {
+    autoEnabled = false;
+    if (resumeTimer) clearTimeout(resumeTimer);
+  }
+
+  function scheduleResumeAuto() {
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(() => {
+      autoEnabled = true;
+    }, RESUME_AFTER);
+  }
+
+  startAuto();
+
+  ["wheel", "touchstart", "touchmove", "mousedown", "keydown"].forEach(evt => {
+    window.addEventListener(evt, () => {
+      pauseAuto();
+      scheduleResumeAuto();
+    }, { passive: true });
+  });
+
+  ["touchend", "touchcancel", "mouseup", "keyup"].forEach(evt => {
+    window.addEventListener(evt, () => {
+      scheduleResumeAuto();
+    }, { passive: true });
+  });
+
+  window.addEventListener("scroll", () => {
+    if (!autoEnabled) scheduleResumeAuto();
+  }, { passive: true });
+</script>
+
+{% endblock %}

@@ -1,0 +1,5 @@
+Django==5.0.7
+pandas==2.2.2
+openpyxl==3.1.5
+jdatetime==5.0.0
+

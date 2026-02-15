@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<header class="sticky top-0 z-20 border-b border-blue-100/70 bg-white/70 backdrop-blur-xl
+               dark:bg-slate-950/55 dark:border-blue-500/20">
+  <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+    <div class="min-w-0">
+      <h1 class="text-xl md:text-2xl font-extrabold tracking-tight">داشبورد آپلود</h1>
+      <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-6">
+        آخرین آپلود:
+        {% if last %}
+          <span class="font-bold"><span class="font-semibold">{{ last_jalali }}</span>
+        {% else %}
+          — هنوز آپلود نشده
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="themeBtn"
+        class="rounded-2xl border border-blue-100 bg-white px-3 py-2 shadow-sm hover:bg-blue-50
+               dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60">
+        <span id="themeIcon">🌙</span>
+      </button>
+
+      <a href="{% url 'cards' %}"
+         class="rounded-2xl border border-blue-100 bg-white px-4 py-2 shadow-sm hover:bg-blue-50
+                dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60">
+        مشاهده کارت‌ها
+      </a>
+
+      <a href="{% url 'logout' %}"
+         class="rounded-2xl bg-blue-600 text-white px-4 py-2 shadow-sm hover:bg-blue-700 active:bg-blue-800
+                dark:bg-blue-500 dark:hover:bg-blue-600">
+        خروج
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6">
+
+  {% if msg %}
+    <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3
+                dark:bg-amber-950/25 dark:border-amber-800 dark:text-amber-200">
+      {{ msg }}
+    </div>
+  {% endif %}
+
+  <div class="rounded-[32px] border border-blue-100/70 bg-white/75 backdrop-blur-xl shadow-soft p-6
+              dark:bg-slate-900/65 dark:border-blue-500/20">
+    <h2 class="font-extrabold text-lg">آپلود فایل‌ها</h2>
+    <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">
+      اکسل و زیپ عکس‌ها را انتخاب کنید. سیستم همیشه از آخرین آپلود استفاده می‌کند.
+    </p>
+
+    <form method="post" enctype="multipart/form-data" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% csrf_token %}
+
+      <div class="rounded-2xl border border-blue-100 bg-white/70 p-4 shadow-sm
+                  dark:bg-slate-950/35 dark:border-blue-500/20">
+        <div class="text-sm font-extrabold text-slate-800 dark:text-slate-100">Excel</div>
+        <input type="file" name="excel_file" accept=".xlsx,.xls" class="mt-2 w-full" />
+      </div>
+
+      <div class="rounded-2xl border border-blue-100 bg-white/70 p-4 shadow-sm
+                  dark:bg-slate-950/35 dark:border-blue-500/20">
+        <div class="text-sm font-extrabold text-slate-800 dark:text-slate-100">Photos ZIP</div>
+        <input type="file" name="photos_zip" accept=".zip" class="mt-2 w-full" />
+      </div>
+
+      <div class="md:col-span-2">
+        <button class="w-full rounded-2xl bg-blue-600 text-white py-3 font-extrabold shadow-sm hover:bg-blue-700 active:bg-blue-800
+                       dark:bg-blue-500 dark:hover:bg-blue-600">
+          آپلود و اعمال
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-4 text-xs text-slate-500 dark:text-slate-400 leading-6">
+      عکس‌ها می‌توانند در zip به شکل پوشه‌های ایمیل یا نام فایل شامل ایمیل باشند.
+    </div>
+  </div>
+
+  <div class="mt-6 rounded-[32px] border border-blue-100/70 bg-white/75 backdrop-blur-xl shadow-softer p-6
+              dark:bg-slate-900/65 dark:border-blue-500/20">
+    <h3 class="font-extrabold">Django Admin</h3>
+    <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">
+      <a class="underline text-blue-700 dark:text-blue-300" href="/admin/">/admin/</a>
+    </p>
+  </div>
+
+</main>
+
+<script>
+  const themeBtn = document.getElementById('themeBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  const root = document.documentElement;
+  function setTheme(mode){
+    if(mode==='dark'){ root.classList.add('dark'); themeIcon.textContent='☀️'; localStorage.setItem('theme','dark');}
+    else { root.classList.remove('dark'); themeIcon.textContent='🌙'; localStorage.setItem('theme','light');}
+  }
+  setTheme(root.classList.contains('dark') ? 'dark' : 'light');
+  themeBtn.addEventListener('click', ()=> setTheme(root.classList.contains('dark') ? 'light':'dark'));
+</script>
+
+{% endblock %}

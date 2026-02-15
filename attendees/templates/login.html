@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+
+<div class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-[32px] border border-blue-100/70 bg-white/75 backdrop-blur-xl shadow-soft p-6
+              dark:bg-slate-900/65 dark:border-blue-500/20">
+
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-extrabold tracking-tight">ورود به پنل</h1>
+      </div>
+
+      <button id="themeBtn"
+        class="rounded-2xl border border-blue-100 bg-white px-3 py-2 shadow-sm hover:bg-blue-50
+               dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950/60">
+        <span id="themeIcon">🌙</span>
+      </button>
+    </div>
+
+    {% if error %}
+      <div class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 px-4 py-3
+                  dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-200">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="post" class="mt-5 space-y-3">
+      {% csrf_token %}
+      <input name="username" placeholder="username"
+        class="w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-sm
+               focus:outline-none focus:ring-4 focus:ring-blue-200/60
+               dark:bg-slate-950/40 dark:border-blue-500/20 dark:focus:ring-blue-500/20" />
+
+      <input name="password" type="password" placeholder="password"
+        class="w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-sm
+               focus:outline-none focus:ring-4 focus:ring-blue-200/60
+               dark:bg-slate-950/40 dark:border-blue-500/20 dark:focus:ring-blue-500/20" />
+
+      <button
+        class="w-full rounded-2xl bg-blue-600 text-white py-3 font-extrabold shadow-sm hover:bg-blue-700 active:bg-blue-800
+               dark:bg-blue-500 dark:hover:bg-blue-600">
+        ورود
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  const themeBtn = document.getElementById('themeBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  const root = document.documentElement;
+  function setTheme(mode){
+    if(mode==='dark'){ root.classList.add('dark'); themeIcon.textContent='☀️'; localStorage.setItem('theme','dark');}
+    else { root.classList.remove('dark'); themeIcon.textContent='🌙'; localStorage.setItem('theme','light');}
+  }
+  setTheme(root.classList.contains('dark') ? 'dark' : 'light');
+  themeBtn.addEventListener('click', ()=> setTheme(root.classList.contains('dark') ? 'light':'dark'));
+</script>
+
+{% endblock %}
