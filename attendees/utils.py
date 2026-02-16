@@ -100,16 +100,26 @@ def safe_extract_zip(zip_path: str, dest_dir: str):
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             with z.open(member, "r") as src, open(target_path, "wb") as out:
                 out.write(src.read())
-
+                
+                
 def build_photo_index(extract_root: str):
     """
     returns: dict[email_lower] -> relative_path (inside extract_root)
+
     Supports:
-      A) folder named as email: <email>/<img>
-      B) filename contains email
+      - old format: photos/<email>/<img>
+      - new format: final_photo/<email>/submission_.../<...>/<img>
+      - any nested structure as long as a path segment contains an email.
     """
-    index = {}
     candidates = {}
+
+    def is_email_segment(seg: str) -> bool:
+        seg = (seg or "").strip()
+        if not seg:
+            return False
+        if not EMAIL_SAFE_RE.match(seg):
+            return False
+        return bool(re.fullmatch(r"[A-Za-z0-9\.\+\-_]+@[A-Za-z0-9\.\-_]+\.[A-Za-z]{2,}", seg))
 
     for root, _, files in os.walk(extract_root):
         for fn in files:
@@ -119,21 +129,41 @@ def build_photo_index(extract_root: str):
 
             full_path = os.path.join(root, fn)
             rel_path = os.path.relpath(full_path, extract_root).replace("\\", "/")
+            parts = [p for p in rel_path.split("/") if p]
 
-            parent = os.path.basename(os.path.dirname(full_path))
-            if EMAIL_SAFE_RE.match(parent):
-                candidates.setdefault(parent.lower(), []).append(rel_path)
+            email = None
 
-            m = re.search(r"[A-Za-z0-9\.\+\-_]+@[A-Za-z0-9\.\-_]+\.[A-Za-z]{2,}", fn)
-            if m:
-                em = m.group(0).lower()
-                if EMAIL_SAFE_RE.match(em):
-                    candidates.setdefault(em, []).append(rel_path)
+            for p in parts:
+                if "@" in p and is_email_segment(p.lower()):
+                    email = p.lower()
+                    break
 
-    for email, paths in candidates.items():
-        paths.sort()
-        index[email] = paths[0]
+            if not email:
+                m = re.search(r"[A-Za-z0-9\.\+\-_]+@[A-Za-z0-9\.\-_]+\.[A-Za-z]{2,}", rel_path)
+                if m:
+                    em = m.group(0).lower()
+                    if is_email_segment(em):
+                        email = em
+
+            if not email:
+                continue
+
+            size = 0
+            try:
+                size = os.path.getsize(full_path)
+            except Exception:
+                pass
+
+            depth = rel_path.count("/")
+
+            candidates.setdefault(email, []).append((depth, -size, rel_path))
+
+    index = {}
+    for email, items in candidates.items():
+        items.sort()
+        index[email] = items[0][2]
     return index
+
 
 def normalize_interest_term(s: str) -> str:
     """
@@ -168,7 +198,18 @@ def normalize_tag(raw_tag: str) -> str:
     return t_up
 
 def load_attendees_from_upload(upload_obj):
+    """
+    Reads the Excel + photos zip, builds the list of attendee dicts for the UI,
+    AND synchronizes a DB snapshot (Attendee model) so that `selected` persists
+    across reloads and is editable in Django admin.
+
+    Only rows with Status == 1 are shown.
+    """
+    import os
+    import json
+    import pandas as pd
     from django.utils import timezone
+    from django.conf import settings
     from .models import Attendee
 
     excel_path = upload_obj.excel_file.path
@@ -176,7 +217,6 @@ def load_attendees_from_upload(upload_obj):
 
     extract_dir = os.path.join(settings.MEDIA_ROOT, "extracted", f"upload_{upload_obj.id}")
 
-    # Extract only once per upload id
     if not os.path.isdir(extract_dir) or not any(os.scandir(extract_dir)):
         safe_extract_zip(zip_path, extract_dir)
 
@@ -185,7 +225,6 @@ def load_attendees_from_upload(upload_obj):
     df = pd.read_excel(excel_path).fillna("")
     cols = list(df.columns)
 
-    # best-effort detect interests column
     interests_key = None
     for c in cols:
         if "NovaTech" in str(c) or "علاقه" in str(c):
@@ -202,7 +241,15 @@ def load_attendees_from_upload(upload_obj):
         "در حال حاضر در چه موقعیت شغلی فعالیت می‌کنید؟",
     ]
 
-    # --- DB sync (keep existing selected state) ---
+    def status_is_present(val) -> bool:
+        s = str(val).strip().lower()
+        if s in ("1", "1.0", "true", "yes", "y", "present", "ok"):
+            return True
+        try:
+            return float(s) == 1.0
+        except Exception:
+            return False
+
     existing = {a.email.lower(): a for a in Attendee.objects.filter(upload=upload_obj)}
     to_create = []
     to_update = []
@@ -212,7 +259,10 @@ def load_attendees_from_upload(upload_obj):
     for _, row in df.iterrows():
         item = {str(c): normalize_value(row[c]) for c in cols}
 
-        # Iran mobile => 09xxxxxxxxx
+        status_val = item.get("Status", "")
+        if not status_is_present(status_val):
+            continue
+
         if "شماره همراه" in item:
             fm = format_iran_mobile(item["شماره همراه"], pretty=False)
             if fm:
@@ -222,11 +272,9 @@ def load_attendees_from_upload(upload_obj):
         email = email_raw.lower()
         name = str(item.get(NAME_COLUMN, "")).strip() or str(item.get("User Name", "")).strip()
 
-        # --- Tag ---
         tag = normalize_tag(str(item.get("Tag", "")).strip())
-        item["Tag"] = tag  # make raw pretty & consistent
+        item["Tag"] = tag
 
-        # interests
         interests = maybe_parse_list(item.get(interests_key, "")) if interests_key else []
         if interests_key:
             interests = [normalize_interest_term(x) for x in (interests or [])]
@@ -242,7 +290,6 @@ def load_attendees_from_upload(upload_obj):
             if val:
                 summary.append((k, val))
 
-        # search blob for filtering
         search_blob = " ".join([
             str(name or ""),
             str(email_raw or ""),
@@ -256,7 +303,6 @@ def load_attendees_from_upload(upload_obj):
 
         raw_json = json.dumps(item, ensure_ascii=False)
 
-        # DB record + selected state
         selected = False
         if email:
             obj = existing.get(email)
@@ -272,7 +318,7 @@ def load_attendees_from_upload(upload_obj):
                     obj.tag = tag or "PRODUCT"
                     changed = True
                 if changed:
-                    obj.updated_at = now  # bulk_update won't auto-set
+                    obj.updated_at = now
                     to_update.append(obj)
 
         attendees.append({
@@ -287,7 +333,6 @@ def load_attendees_from_upload(upload_obj):
             "selected": selected,
         })
 
-    # apply DB changes
     if to_create:
         Attendee.objects.bulk_create(to_create, ignore_conflicts=True)
     if to_update:

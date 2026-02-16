@@ -32,11 +32,13 @@
             <span id="count">{{ attendees|length }}</span> نفر
           </div>
 
+          {% if user.is_staff %}
           <a href="{% url 'logout' %}"
              class="rounded-2xl bg-blue-600 text-white px-4 py-2 shadow-sm hover:bg-blue-700 active:bg-blue-800
                     dark:bg-blue-500 dark:hover:bg-blue-600">
             خروج
           </a>
+          {% endif %}
         </div>
       </div>
 
@@ -61,7 +63,7 @@
   </div>
 </header>
 
-<main class="max-w-8xl mx-auto px-12 py-6">
+<main class="max-w-8xl mx-auto px-4 py-6">
   {% if no_upload %}
     <div class="max-w-3xl mx-auto rounded-[22px] border border-blue-100/70 bg-white/75 backdrop-blur-xl shadow-sm p-6
                 dark:bg-slate-900/65 dark:border-blue-500/20">
@@ -86,9 +88,9 @@
       {% if a.tag == "AI" %}
         <div class="h-1.5 bg-red-600"></div>
       {% elif a.tag == "SOFTWARE" %}
-        <div class="h-1.5 bg-green-600"></div>
-      {% else %}
         <div class="h-1.5 bg-blue-600"></div>
+      {% else %}
+        <div class="h-1.5 bg-green-600"></div>
       {% endif %}
 
       <div class="selectedOverlay pointer-events-none absolute inset-0 {% if not a.selected %}hidden{% endif %}">
@@ -123,15 +125,16 @@
             <p class="text-xs text-slate-600 dark:text-slate-300 mt-1 break-words line-clamp-2">{{ a.email }}</p>
 
             <div class="mt-2 flex items-center gap-2">
+              {% if user.is_staff %}
               <button
                 type="button"
                 class="selectBtn h-9 rounded-2xl border border-blue-100 bg-white/80 px-3 text-xs font-extrabold shadow-sm hover:bg-blue-50
                        dark:bg-slate-950/40 dark:border-blue-500/20 dark:hover:bg-slate-950"
                 aria-pressed="{% if a.selected %}true{% else %}false{% endif %}"
-                {% if a.selected and not user.is_staff %}disabled{% endif %}
               >
                 {% if a.selected %}انتخاب شد{% else %}انتخاب{% endif %}
               </button>
+              {% endif %}
 
               <button
                 class="openModal h-9 rounded-2xl border border-blue-100 bg-white/80 px-3 text-xs font-extrabold shadow-sm hover:bg-blue-50
@@ -143,9 +146,9 @@
               {% if a.tag == "AI" %}
                 <span class="h-9 inline-flex items-center rounded-2xl bg-red-600 px-3 text-xs font-extrabold text-white">AI</span>
               {% elif a.tag == "SOFTWARE" %}
-                <span class="h-9 inline-flex items-center rounded-2xl bg-green-600 px-3 text-xs font-extrabold text-white">Software</span>
+                <span class="h-9 inline-flex items-center rounded-2xl bg-blue-600 px-3 text-xs font-extrabold text-white">Software</span>
               {% else %}
-                <span class="h-9 inline-flex items-center rounded-2xl bg-blue-600 px-3 text-xs font-extrabold text-white">Product</span>
+                <span class="h-9 inline-flex items-center rounded-2xl bg-green-600 px-3 text-xs font-extrabold text-white">Product</span>
               {% endif %}
             </div>
           </div>
@@ -168,8 +171,8 @@
           {% for it in a.interests|slice:":6" %}
             <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold text-white
                          {% if a.tag == 'AI' %} bg-red-600
-                         {% elif a.tag == 'SOFTWARE' %} bg-green-600
-                         {% else %} bg-blue-600
+                         {% elif a.tag == 'SOFTWARE' %} bg-blue-600
+                         {% else %} bg-green-600
                          {% endif %}">
               {{ it }}
             </span>
@@ -204,11 +207,13 @@
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
+        {% if user.is_staff %}
         <button id="selectFromModal"
           class="rounded-2xl bg-blue-600 text-white px-4 py-2 shadow-sm hover:bg-blue-700 active:bg-blue-800
                  dark:bg-blue-500 dark:hover:bg-blue-600">
           انتخاب کن
         </button>
+        {% endif %}
 
         <button id="closeModal"
           class="rounded-2xl border border-blue-100 bg-white px-4 py-2 hover:bg-blue-50 shadow-sm
@@ -328,8 +333,21 @@
       raw = {};
     }
 
+    const hiddenKeys = new Set([
+      "Time","time",
+      "Status","status",
+      "کد ملی","کدملی","کد_ملی","کد ملي","کدملی‌","کد ملی‌",
+      "National Code","national code","NationalCode","nationalcode",
+      "national_id","nationalid","National ID","NationalID",
+      "کد ملی (National ID)"
+    ]);
+
     mTable.innerHTML = '';
-    const entries = Object.entries(raw).filter(([k,v]) => String(v).trim() !== '');
+    const entries = Object.entries(raw).filter(([k,v]) => {
+      if (hiddenKeys.has(String(k).trim())) return false;
+      return String(v).trim() !== '';
+    });
+
     for (const [k,v] of entries) {
       const row = document.createElement('div');
       row.className = 'grid grid-cols-1 md:grid-cols-3 gap-2 px-4 py-3';
@@ -374,23 +392,31 @@
     card.dataset.selected = selected ? "1" : "0";
     const overlay = card.querySelector(".selectedOverlay");
     const btn = card.querySelector(".selectBtn");
+    const detailsBtn = card.querySelector(".openModal");
 
     if (selected) {
       overlay?.classList.remove("hidden");
       card.style.outline = "3px solid rgba(255, 255, 255, 0.75)";
       card.style.outlineOffset = "0px";
       btn?.setAttribute("aria-pressed", "true");
-      if (btn) {
-        btn.textContent = "انتخاب شد";
-        if (!IS_STAFF) btn.disabled = true;
+      if (btn) btn.textContent = "انتخاب شد";
+
+      if (!IS_STAFF && detailsBtn) {
+        detailsBtn.disabled = true;
+        detailsBtn.classList.add("opacity-50", "cursor-not-allowed");
+      } else if (detailsBtn) {
+        detailsBtn.disabled = false;
+        detailsBtn.classList.remove("opacity-50", "cursor-not-allowed");
       }
     } else {
       overlay?.classList.add("hidden");
       card.style.outline = "none";
       btn?.setAttribute("aria-pressed", "false");
-      if (btn) {
-        btn.textContent = "انتخاب";
-        btn.disabled = false;
+      if (btn) btn.textContent = "انتخاب";
+
+      if (detailsBtn) {
+        detailsBtn.disabled = false;
+        detailsBtn.classList.remove("opacity-50", "cursor-not-allowed");
       }
     }
   }
@@ -399,39 +425,47 @@
     setSelected(card, card.dataset.selected === "1");
   });
 
-  document.querySelectorAll(".card").forEach(card => {
-    const btn = card.querySelector(".selectBtn");
-    btn?.addEventListener("click", async (e) => {
-      e.stopPropagation();
+  if (IS_STAFF) {
+    document.querySelectorAll(".card").forEach(card => {
+      const btn = card.querySelector(".selectBtn");
+      btn?.addEventListener("click", async (e) => {
+        e.stopPropagation();
 
-      const email = (card.dataset.email || "").trim().toLowerCase();
-      if (!email) return;
+        const email = (card.dataset.email || "").trim().toLowerCase();
+        if (!email) return;
 
-      const isSelected = card.dataset.selected === "1";
-      if (!IS_STAFF && isSelected) return;
+        const isSelected = card.dataset.selected === "1";
+        const desired = !isSelected;
 
-      const desired = IS_STAFF ? !isSelected : true;
-      const resp = await persistSelection(email, desired);
-      if (resp && resp.ok) setSelected(card, !!resp.selected);
+        const resp = await persistSelection(email, desired);
+        if (resp && resp.ok) setSelected(card, !!resp.selected);
+      });
     });
-  });
+
+    selectFromModal?.addEventListener('click', async () => {
+      if (!activeCard) return;
+
+      const email = (activeCard.dataset.email || "").trim().toLowerCase();
+      if (!email) { hideModal(); return; }
+
+      if (activeCard.dataset.selected === "1") { hideModal(); return; }
+
+      const resp = await persistSelection(email, true);
+      if (resp && resp.ok) setSelected(activeCard, true);
+
+      hideModal();
+    });
+  } else {
+    if (selectFromModal) selectFromModal.style.display = "none";
+  }
 
   document.querySelectorAll('.openModal').forEach(btn => {
-    btn.addEventListener('click', (e) => showModal(e.target.closest('.card')));
-  });
-
-  selectFromModal?.addEventListener('click', async () => {
-    if (!activeCard) return;
-
-    const email = (activeCard.dataset.email || "").trim().toLowerCase();
-    if (!email) { hideModal(); return; }
-
-    if (activeCard.dataset.selected === "1") { hideModal(); return; }
-
-    const resp = await persistSelection(email, true);
-    if (resp && resp.ok) setSelected(activeCard, true);
-
-    hideModal();
+    btn.addEventListener('click', (e) => {
+      const card = e.target.closest('.card');
+      if (!card) return;
+      if (!IS_STAFF && card.dataset.selected === "1") return;
+      showModal(card);
+    });
   });
 
   modalWrap?.addEventListener('click', (e) => { if (e.target === modalWrap) hideModal(); });
